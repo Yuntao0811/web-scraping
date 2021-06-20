@@ -13,7 +13,7 @@ logging.basicConfig(
     filemode = 'w',
     format = '%(asctime)s | %(levelname)s | %(message)s',
     datefmt = '%H:%M:%S',
-    level = logging.INFO
+    level = logging.DEBUG
 )
 
 logger = logging.getLogger()
@@ -88,6 +88,7 @@ def get_list_urls(url):
 			yield r.text, f"{BASE_PATH}{r.get('href')}"
 
 def get_data_from_rent(rent_url, district, name):
+
 	bs = getSoup(rent_url)
 
 	#### find standard info
@@ -123,8 +124,7 @@ def get_data_from_rent(rent_url, district, name):
 	r["Name"] = name
 	r["Url"] = rent_url
 
-	logger.info(f"Name: {name}, District: {district}, Url: {rent_url}")
-	print(f"Name: {name}, District: {district}, Url: {rent_url}")
+
 
 	return r
 
@@ -216,9 +216,23 @@ if __name__ == '__main__':
 	for district in DISTRICT_MAPPING.keys():
 		url = getDistrictUrl(district)
 
-		for name, suburl in get_list_urls(url):
-			rental_data = get_data_from_rent(suburl, district, name)
-			saveRentalEntry(rental_data)
+		for name, rentalUrl in get_list_urls(url):
+			logger.info(f"Name: {name}, District: {district}, Url: {rentalUrl}")
+			print(f"Name: {name}, District: {district}, Url: {rentalUrl}")
+
+			sql = "select distinct Name from rentals;"
+			df = dbIO.query_sql_df(sql)
+			if not df.empty:
+				if name in df["Name"].tolist():
+					logger.debug(f"condo {name} already exists in database, skip to next condo")
+					continue
+
+			try:
+				rental_data = get_data_from_rent(rentalUrl, district, name)
+				saveRentalEntry(rental_data)
+			except Exception as e:
+				logger.error(str(e))
+
 
 
 	# import pandas as pd
